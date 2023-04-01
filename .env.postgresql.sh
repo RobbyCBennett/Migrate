@@ -12,7 +12,7 @@ user=my_cool_project
 driver=psql
 driver_cmd='-c'
 driver_only_results='-qtAX'
-driver_file='-v ON_ERROR_STOP=1 -a -f'
+driver_file='-v ON_ERROR_STOP=1 -1 -a -f'
 driver_db='-d'
 
 # Colors for the migration command-line interface
