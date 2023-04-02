@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Location of migration SQL files, ending with a slash
-migration_sql_dir='../../db/'
+migration_sql_dir='../db/'
 
 # Access
 admin=postgres
