@@ -10,7 +10,7 @@ parse_up_down_args()
 	count=1
 	yes=''
 	for arg in "$@"; do
-		if [ "$arg" = 'yes' ]; then
+		if [ "$arg" = "$arg_yes_short" ] || [ "$arg" = "$arg_yes_long" ]; then
 			yes=1
 		elif [ "$arg" -gt 1 ] 2>/dev/null; then
 			count=$arg
