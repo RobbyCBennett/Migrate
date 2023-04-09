@@ -46,7 +46,7 @@ Migration help
         ./migrate.sh status
 
     Primary Arguments:
-        init:        Initialize the database and the migrations table
+        init:        Initialize the database and create the migrations table
 
         MIG_NAME:    Create a migration (usually snake_case) with the given migration name
 
@@ -60,7 +60,6 @@ Migration help
         INTEGER:     Instead of only 1 migration, migrate up/down many times
 
     Tips:
-        Folders:     Organize SQL files into folders
-        Files:       Rename files as long as they have regex (^|-)MIG_NAME-(up|down).sql$
+        Folders:     Organize SQL files into folders if you want to
 ```
 

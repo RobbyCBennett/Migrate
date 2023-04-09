@@ -15,10 +15,24 @@ driver_only_results='-qtAX'
 driver_file='-v ON_ERROR_STOP=1 -1 -a -f'
 driver_db='-d'
 
-# Colors for the migration command-line interface
-color_header='\033[0;34m'
-color_up='\033[0;32m'
-color_down='\033[0;31m'
+# Colors for the migration CLI
+color_header='\033[0;34m' # Blue
+color_up='\033[0;32m'     # Green
+color_down='\033[0;31m'   # Red
+
+# Arguments for the migration CLI
+arg_init_long='init'
+arg_init_short='i'
+arg_status_long='status'
+arg_status_short='s'
+arg_up_long='up'
+arg_up_short='u'
+arg_down_long='down'
+arg_down_short='d'
+arg_yes_long='yes'
+arg_yes_short='y'
+arg_help_long='help'
+arg_help_short='h'
 
 # Query: create a user/role to access the project database
 query_create_user()
@@ -35,7 +49,7 @@ query_create_database()
 # Query: create the table for migrations
 query_create_migrations_table()
 {
-	echo 'CREATE TABLE migrations(id SERIAL, name VARCHAR(255) UNIQUE NOT NULL, up BOOLEAN)'
+	echo 'CREATE TABLE IF NOT EXISTS migrations(id SERIAL, name VARCHAR(255) UNIQUE NOT NULL, up BOOLEAN)'
 }
 
 # Query: get the migration status
@@ -71,6 +85,5 @@ query_update_for_migration_down()
 # Query: given a name, create a migration in the migrations table
 query_insert_migration()
 {
-	echo "INSERT INTO migrations (name, up) VALUES ('$1', false);"
+	echo "INSERT INTO migrations (name, up) VALUES ('$1', false) ON CONFLICT DO NOTHING"
 }
-

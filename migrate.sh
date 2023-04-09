@@ -22,24 +22,19 @@ parse_up_down_args()
 find_one_file()
 {
 	# Find the files that match either of the 2 patterns
-	count1=`find $migration_sql_dir -type f -name $1 -exec printf %c {} + | wc -c`
-	count2=`find $migration_sql_dir -type f -name $2 -exec printf %c {} + | wc -c`
-	name1=`find $migration_sql_dir -type f -name $1`
-	name2=`find $migration_sql_dir -type f -name $2`
+	pattern=$1
+	count=`find $migration_sql_dir -type f -name $pattern -exec printf %c {} + | wc -c`
+	file=`find $migration_sql_dir -type f -name $pattern`
 
 	# Error if there are more than 1
-	if [ $(($count1 + $count2)) -gt 1 ]; then
+	if [ $count -gt 1 ]; then
 		echo "Error: too many files for the migration name $name"
-		echo "find $migration_sql_dir -type f -name $1 && find $migration_sql_dir -type f -name $2"
+		echo "find $migration_sql_dir -type f -name $pattern"
 		exit
 	fi
 
 	# Echo the only name
-	if [ "$name1" ]; then
-		echo $name1
-	else
-		echo $name2
-	fi
+	echo $file
 }
 
 
@@ -62,7 +57,7 @@ echo_migration_down()
 }
 
 
-confirm()
+confirm_migration()
 {
 	choice=''
 	while [ "$choice" != 'y' ]; do
@@ -130,6 +125,9 @@ migrate_up()
 	# Get name of migration
 	query=`query_select_name_for_migration_up`
 	name=`$driver $driver_db $database $driver_only_results $driver_cmd "$query"`
+	if [ $? -ne 0 ]; then
+		exit
+	fi
 
 	# Finished if all migrations are up
 	if [ "$name" = '' ]; then
@@ -138,12 +136,12 @@ migrate_up()
 	fi
 
 	# Get path of the SQL file
-	file=`find_one_file *-$name-up.sql $name-up.sql`
+	file=`find_one_file *-$name-up.sql`
 
 	# Get confirmation
 	echo_migration_up $name
 	if ! [ "$yes" ]; then
-		confirm
+		confirm_migration
 	fi
 
 	# Run the SQL file
@@ -176,12 +174,12 @@ migrate_down()
 	fi
 
 	# Get path of the SQL file
-	file=`find_one_file *-$name-down.sql $name-down.sql`
+	file=`find_one_file *-$name-down.sql`
 
 	# Get confirmation
 	echo_migration_down $name
 	if ! [ "$yes" ]; then
-		confirm
+		confirm_migration
 	fi
 
 	# Run the SQL file
@@ -199,20 +197,45 @@ migrate_down()
 }
 
 
+sort_migrations_by_prefix_and_get_names()
+{
+	pattern=*-*-up.sql
+	find $migration_sql_dir -type f -name $pattern | rev | cut -d / -f 1 | rev | sort | rev | cut -d - -f 2 | rev
+}
+
+
+create_all_migrations()
+{
+	echo_header 'Making sure that all SQL migration names are in the database'
+
+	total=0
+	for name in `sort_migrations_by_prefix_and_get_names`; do
+		query=`query_insert_migration $name`
+		result=`$driver $driver_db $database $driver_cmd "$query" 2> /dev/null | cut -d ' ' -f 3`
+		if [ "$result" ] && [ $result -eq 1 ]; then
+			total=$(($total + 1))
+			echo "Inserted $name"
+		fi
+	done
+	echo "Inserted $total names of existing SQL migration files"
+}
+
+
 create_migration()
 {
 	echo_header 'Inserting row into migrations table'
 
 	# Insert into database
-	query=`query_insert_migration $1`
+	name=$1
+	query=`query_insert_migration $name`
 	$driver $driver_db $database $driver_cmd "$query"
 
 	echo
 	echo_header 'Creating files for migration'
 
 	# Error if file exists
-	up=`find_one_file *-$1-up.sql $1-up.sql`
-	down=`find_one_file *-$1-down.sql $1-down.sql`
+	up=`find_one_file *-$name-up.sql`
+	down=`find_one_file *-$name-down.sql`
 	if [ "$up" ] || [ "$down" ]; then
 		echo 'Error: an SQL file with that migration name already exists'
 		if [ "$up" ]; then echo $up; fi
@@ -222,8 +245,8 @@ create_migration()
 
 	# Create files
 	date=`date +%Y-%m-%d-%H-%M-%S`
-	up="$migration_sql_dir$date-$1-up.sql"
-	down="$migration_sql_dir$date-$1-down.sql"
+	up="$migration_sql_dir$date-$name-up.sql"
+	down="$migration_sql_dir$date-$name-down.sql"
 	touch $up
 	touch $down
 	echo $up
@@ -249,7 +272,7 @@ help()
 	echo '        ./migrate.sh status'
 	echo
 	echo '    Primary Arguments:'
-	echo '        init:        Initialize the database and the migrations table'
+	echo '        init:        Initialize the database and create the migrations table'
 	echo
 	echo '        MIG_NAME:    Create a migration (usually snake_case) with the given migration name'
 	echo
@@ -263,17 +286,22 @@ help()
 	echo '        INTEGER:     Instead of only 1 migration, migrate up/down many times'
 	echo
 	echo '    Tips:'
-	echo '        Folders:     Organize SQL files into folders'
-	echo '        Files:       Rename files as long as they have regex (^|-)MIG_NAME-(up|down).sql$'
+	echo '        Folders:     Organize SQL files into folders if you want to'
 }
 
 
 # Main: parse arguments
-if [ "$1" = 'init' ]; then
+if [ "$1" = "$arg_init_short" ] || [ "$1" = "$arg_init_long" ]; then
 	init
-elif [ "$1" = 'status' ]; then
+	echo
+	create_all_migrations
+elif [ "$1" = "$arg_status_short" ] || [ "$1" = "$arg_status_long" ]; then
+	create_all_migrations
+	echo
 	migration_status
-elif [ "$1" = 'up' ]; then
+elif [ "$1" = "$arg_up_short" ] || [ "$1" = "$arg_up_long" ]; then
+	create_all_migrations
+	echo
 	parse_up_down_args $*
 	i=0
 	while [ $i -lt $count ]; do
@@ -283,7 +311,9 @@ elif [ "$1" = 'up' ]; then
 		fi
 		i=$(($i + 1))
 	done
-elif [ "$1" = 'down' ]; then
+elif [ "$1" = "$arg_down_short" ] || [ "$1" = "$arg_down_long" ]; then
+	create_all_migrations
+	echo
 	parse_up_down_args $*
 	i=0
 	while [ $i -lt $count ]; do
@@ -293,15 +323,11 @@ elif [ "$1" = 'down' ]; then
 		fi
 		i=$(($i + 1))
 	done
-elif [ "$1" = '' ]; then
-	help
-elif [ "$1" = "-h" ]; then
-	help
-elif [ "$1" = "help" ]; then
-	help
-elif [ "$1" = "-help" ]; then
+elif [ "$1" = '' ] || [ "$1" = "$arg_help_short" ] || [ "$1" = "$arg_help_long" ] || [ "$1" = '--help' ]; then
 	help
 else
+	create_all_migrations
+	echo
 	create_migration $1
 fi
 
