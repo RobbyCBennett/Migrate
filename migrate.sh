@@ -41,19 +41,19 @@ find_one_file()
 color_end='\033[0m'
 echo_header()
 {
-	echo "$color_header$1$color_end"
+	echo -e "$color_header$1$color_end"
 }
 
 
 echo_migration_up()
 {
-	echo "Migration name: $color_up$1$color_end"
+	echo -e "Migration name: $color_up$1$color_end"
 }
 
 
 echo_migration_down()
 {
-	echo "Migration name: $color_down$1$color_end"
+	echo -e "Migration name: $color_down$1$color_end"
 }
 
 
